@@ -140,6 +140,51 @@ pub fn create_binding_event<S: Signer>(
     Event::create(signer, kinds::APP_DATA, tags, content_json, created_at)
 }
 
+/// Build a base identity binding event (kind 30078, no nametag). The `d` tag is
+/// `SHA-256("unicity:identity:" + nostr_pubkey_hex)`, so a key has exactly one.
+pub fn create_identity_binding_event<S: Signer>(
+    signer: &S,
+    identity: &IdentityBindingParams,
+    created_at: i64,
+) -> Result<Event> {
+    #[derive(Serialize)]
+    struct IdentityContent<'a> {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        public_key: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        l1_address: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        direct_address: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        proxy_address: Option<&'a str>,
+    }
+
+    let nostr_pubkey = hex::encode(signer.public_key());
+    let d_tag = nametag::sha256_hex(&alloc::format!("unicity:identity:{nostr_pubkey}"));
+    let mut tags: Vec<Tag> = vec![vec!["d".to_string(), d_tag]];
+
+    for addr in [
+        identity.public_key.as_deref(),
+        identity.l1_address.as_deref(),
+        identity.direct_address.as_deref(),
+        identity.proxy_address.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        tags.push(vec!["t".to_string(), nametag::hash_address_for_tag(addr)]);
+    }
+
+    let content = serde_json::to_string(&IdentityContent {
+        public_key: identity.public_key.as_deref(),
+        l1_address: identity.l1_address.as_deref(),
+        direct_address: identity.direct_address.as_deref(),
+        proxy_address: identity.proxy_address.as_deref(),
+    })
+    .expect("identity content");
+    Event::create(signer, kinds::APP_DATA, tags, content, created_at)
+}
+
 /// Filter for `nametag → binding` resolution.
 pub fn create_nametag_to_pubkey_filter(nametag_id: &str) -> Filter {
     Filter::builder()
