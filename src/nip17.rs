@@ -6,12 +6,12 @@
 //! 2. **Seal** (kind 13) — signed by the sender, NIP-44-encrypts the rumor JSON to the recipient.
 //! 3. **Gift wrap** (kind 1059) — signed by a fresh ephemeral key, NIP-44-encrypts the seal JSON.
 //!
-//! Everything routes through the [`Signer`] seam, so the messaging capsule never
-//! holds the identity key — the only local secret is the throwaway ephemeral key
-//! used for the outer wrap. Because the wrap uses a random ephemeral key and
-//! randomized timestamps, gift wraps are non-deterministic; [`create_gift_wrap`]
-//! therefore takes the entropy explicitly ([`GiftWrapParams`]) so callers control
-//! it (host RNG/clock in the capsule; fixed values in tests).
+//! Everything routes through the [`Signer`] seam, so a network-facing component
+//! need never hold the identity key — the only local secret is the throwaway
+//! ephemeral key used for the outer wrap. Because the wrap uses a random
+//! ephemeral key and randomized timestamps, gift wraps are non-deterministic;
+//! [`create_gift_wrap`] therefore takes the entropy explicitly ([`GiftWrapParams`])
+//! so callers control it (a host RNG/clock in production; fixed values in tests).
 
 use alloc::string::{String, ToString};
 use alloc::vec;
@@ -63,8 +63,8 @@ pub struct PrivateMessage {
     pub reply_to_event_id: Option<String>,
 }
 
-/// Caller-supplied entropy + timestamps for a gift wrap. In the capsule these
-/// come from the host RNG/clock; in tests they are fixed for determinism.
+/// Caller-supplied entropy + timestamps for a gift wrap. In production these come
+/// from a secure RNG and the system clock; in tests they are fixed for determinism.
 pub struct GiftWrapParams<'a> {
     /// Message content.
     pub content: &'a str,

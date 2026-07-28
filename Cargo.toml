@@ -8,7 +8,13 @@ repository = "https://github.com/unicitynetwork/nostr-sdk-rust"
 rust-version = "1.85"
 
 # The crate is deliberately transport-free and custody-agnostic (Signer trait).
-# All crypto is pure-Rust so it can compile to wasm32-unknown-unknown for the AOS capsule.
+# All crypto is pure-Rust so it can compile to wasm32-unknown-unknown.
+[features]
+default = []
+# Native (std/tungstenite) relay transport for host tools + e2e tests. A no_std
+# target would instead supply its own RelayConnection implementation.
+native-transport = ["dep:tungstenite"]
+
 [dependencies]
 k256 = { version = "0.13", default-features = false, features = ["schnorr", "ecdh", "arithmetic", "alloc"] }
 sha2 = { version = "0.10", default-features = false }
@@ -23,9 +29,11 @@ hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 thiserror = "2"
+tungstenite = { version = "0.21", optional = true, default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 hex = "0.4"
 base64 = "0.22"
+getrandom = "0.2"

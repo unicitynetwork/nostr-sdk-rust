@@ -1,9 +1,9 @@
 //! The `Signer` seam — the custody boundary.
 //!
 //! Protocol code (event signing, NIP-04/44 encryption) depends only on this
-//! trait, never on a raw private key. In the AOS design the messaging capsule
-//! holds a `RemoteSigner` that proxies these calls over the bus to the wallet
-//! capsule, so the seed never enters the network-facing capsule. Here we ship
+//! trait, never on a raw private key. A network-facing component can hold a
+//! remote signer that proxies these calls to a separate key-holding component,
+//! so the seed never enters the network-facing side. Here we ship
 //! [`LocalSigner`] for tests and single-process use.
 
 use crate::crypto::{nip04, nip44, schnorr};
