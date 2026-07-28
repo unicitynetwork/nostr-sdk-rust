@@ -8,11 +8,11 @@ repository = "https://github.com/unicitynetwork/nostr-sdk-rust"
 rust-version = "1.85"
 
 # The crate is deliberately transport-free and custody-agnostic (Signer trait).
-# All crypto is pure-Rust so it can compile to wasm32-unknown-unknown for the AOS capsule.
+# All crypto is pure-Rust so it can compile to wasm32-unknown-unknown.
 [features]
 default = []
-# Native (std/tungstenite) relay transport for host tools + e2e tests.
-# NOT used by the wasm capsule, which supplies its own rustls+tungstenite transport.
+# Native (std/tungstenite) relay transport for host tools + e2e tests. A no_std
+# target would instead supply its own RelayConnection implementation.
 native-transport = ["dep:tungstenite"]
 
 [dependencies]

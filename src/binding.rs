@@ -72,7 +72,7 @@ struct BindingContent<'a> {
 
 /// Build a signed nametag binding event (kind 30078) carrying the UNIP-01
 /// single-owner marker. `verified` and `created_at` are supplied by the caller
-/// (host clock in the capsule). If `identity` is given, the plaintext nametag and
+/// (e.g. from the system clock). If `identity` is given, the plaintext nametag and
 /// the (caller-computed) `encrypted_nametag` are embedded for public resolution +
 /// recovery, matching the reference SDK.
 pub fn create_binding_event<S: Signer>(

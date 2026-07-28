@@ -1,7 +1,7 @@
 //! NIP-01 subscription filter, a port of `nostr-js-sdk/src/protocol/Filter.ts`.
 //! Serializes to the relay wire shape (`#e`/`#p`/`#t`/`#d`/`#h` tag filters),
 //! omitting empty fields. Also provides local [`Filter::matches`] for testing
-//! and in-capsule filtering.
+//! and client-side filtering.
 
 use alloc::string::String;
 use alloc::vec;

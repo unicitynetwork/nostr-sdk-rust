@@ -3,9 +3,9 @@
 //! answer NIP-42 AUTH challenges.
 //!
 //! The client is **transport-agnostic** — it drives a [`RelayConnection`] the
-//! caller supplies. The capsule will implement that over the Astrid `net`
-//! interface (rustls + tungstenite); the `native-transport` feature provides a
-//! std/tungstenite implementation for host tools and the e2e tests.
+//! caller supplies (e.g. a `no_std` sockets implementation on a constrained
+//! target); the `native-transport` feature provides a std/tungstenite
+//! implementation for host tools and the e2e tests.
 
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
@@ -124,13 +124,14 @@ pub trait Transport {
 }
 
 /// A single-relay client bound to a connection and a signer (for NIP-42 AUTH).
-/// `now` supplies the current unix time (seconds) for AUTH events — the host
-/// clock in the capsule, `SystemTime` on native.
+/// `now` supplies the current unix time (seconds) for AUTH events (e.g.
+/// `SystemTime` with the native transport).
 pub struct RelayClient<'s, C: RelayConnection, S: Signer> {
     conn: C,
     url: String,
     signer: &'s S,
     now: fn() -> i64,
+    next_sub: u64,
 }
 
 impl<'s, C: RelayConnection, S: Signer> RelayClient<'s, C, S> {
@@ -141,6 +142,7 @@ impl<'s, C: RelayConnection, S: Signer> RelayClient<'s, C, S> {
             url: url.into(),
             signer,
             now,
+            next_sub: 0,
         }
     }
 
@@ -230,8 +232,12 @@ impl<'s, C: RelayConnection, S: Signer> RelayClient<'s, C, S> {
     /// arrives within `idle`. Signature-invalid events are skipped. Answers AUTH
     /// and re-subscribes if challenged mid-query.
     pub fn query(&mut self, filter: &Filter, idle: Duration) -> Result<Vec<Event>> {
-        let sub_id = "q0";
-        self.send_req(sub_id, filter)?;
+        // A unique subscription id per query, so late EVENT/EOSE/CLOSED frames
+        // from a previous (already-closed) subscription can't be mistaken for
+        // responses to this one.
+        self.next_sub += 1;
+        let sub_id = alloc::format!("q{}", self.next_sub);
+        self.send_req(&sub_id, filter)?;
         let mut events = Vec::new();
         loop {
             match self.recv_msg(idle)? {
@@ -244,13 +250,13 @@ impl<'s, C: RelayConnection, S: Signer> RelayClient<'s, C, S> {
                 Some(RelayMessage::Closed { sub_id: s, .. }) if s == sub_id => break,
                 Some(RelayMessage::Auth { .. }) => {
                     // Re-arm the subscription after authenticating.
-                    self.send_req(sub_id, filter)?;
+                    self.send_req(&sub_id, filter)?;
                 }
                 None => break, // idle timeout — assume the relay is done
                 _ => continue,
             }
         }
-        let _ = self.send_close(sub_id);
+        let _ = self.send_close(&sub_id);
         Ok(events)
     }
 

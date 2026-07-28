@@ -5,10 +5,10 @@
 //! module is validated against golden vectors generated from that SDK (see
 //! `tests/vectors.rs`).
 //!
-//! The crate is deliberately **transport-free** (no relay/WebSocket code) and
-//! **custody-agnostic** ([`Signer`]), so it can be consumed both by a wallet
-//! capsule (holding keys) and a messaging capsule (holding a remote signer) in
-//! the AOS/Astrid design, and compiled to `wasm32-unknown-unknown`.
+//! The protocol/crypto layer is deliberately **transport-free** (no relay/WebSocket
+//! code) and **custody-agnostic** ([`Signer`]), so keys and networking can live in
+//! separate components: a key-holding process and a network-facing process that
+//! proxies signing to it. The core compiles to `wasm32-unknown-unknown`.
 //!
 //! ## Compatibility notes
 //! * NIP-44 here is the **Unicity/TS AEAD variant**, not official NIP-44 v2, and
@@ -17,8 +17,7 @@
 //!   GZIP extension for large messages.
 //!
 //! ## Not yet ported (roadmap)
-//! NIP-17 gift-wrap DMs, UNIP-01 nametag bindings + resolution, Filter, the
-//! multi-relay client (transport), NIP-29 group chat, token/payment protocols.
+//! Multi-relay fan-out + reconnect/keepalive supervision, token/payment protocols.
 
 extern crate alloc;
 

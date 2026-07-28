@@ -1,6 +1,6 @@
 //! Nostr key material. A [`Keypair`] holds a 32-byte secret and its x-only
-//! (BIP-340) public key. This is the local, in-memory holder; the capsule's
-//! wallet/messaging split is expressed through the [`crate::signer::Signer`] trait.
+//! (BIP-340) public key. This is the local, in-memory holder; a key-holding /
+//! network-facing split is expressed through the [`crate::signer::Signer`] trait.
 
 use alloc::string::String;
 

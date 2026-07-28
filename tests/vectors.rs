@@ -253,7 +253,7 @@ fn nip44_vectors() {
 #[test]
 fn nip17_unwrap_reference_giftwraps() {
     // The crucial interop direction: Rust unwraps a gift wrap produced by the TS SDK
-    // (i.e. an AOS agent reads a DM sent by a Sphere wallet).
+    // (i.e. this SDK reads a DM sent by a client running the reference SDK).
     let v = v();
     let bob = LocalSigner::from_secret(h32(v["keys"]["bob"]["priv"].as_str().unwrap())).unwrap();
     let alice =

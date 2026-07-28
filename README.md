@@ -2,16 +2,16 @@
 
 A Rust port of the Unicity Nostr protocol, **wire-compatible with the deployed
 TypeScript SDK** ([`@unicitylabs/nostr-js-sdk`](https://github.com/unicitynetwork/nostr-js-sdk)
-v0.6.0). Built for the AOS/Astrid Unicity communication capsule.
+v0.6.0).
 
-Two design rules make this crate reusable across the planned wallet/messaging
-capsule split:
+Two design rules keep the crate reusable and let keys and networking live in
+separate components:
 
-- **Transport-free** — no relay/WebSocket code. The protocol layer is pure
-  computation over a `Signer`; the capsule supplies the socket.
+- **Transport-free** — no relay/WebSocket code in the protocol layer, which is
+  pure computation over a `Signer`; the caller supplies the socket.
 - **Custody-agnostic** — protocol code depends only on the [`Signer`] trait,
-  never a raw private key. A wallet capsule uses `LocalSigner`; a messaging
-  capsule uses a remote signer that proxies to the wallet over the bus.
+  never a raw private key. A key-holding process uses `LocalSigner`; a
+  network-facing process uses a remote signer that proxies signing back to it.
 
 ## Status
 
@@ -35,15 +35,16 @@ from the reference TypeScript SDK** (`cargo test`, 7 tests):
 ### Not yet ported (roadmap)
 
 Multi-relay fan-out (broadcast + cross-relay query settlement) · keepalive/reconnect
-supervision · the in-capsule wasm TLS+WebSocket transport (rustls + tungstenite over
-Astrid `net`) · token/payment protocols. (NIP-29 group chat is out of scope for now.)
+supervision · a `no_std`/wasm TLS+WebSocket transport · token/payment protocols.
+(NIP-29 group chat is out of scope for now.)
 
 ## Relay client & transport
 
 `client` provides a transport-agnostic single-relay client: relay-message parsing,
 publish, subscribe/query, and NIP-42 AUTH — driven by a `RelayConnection` the caller
-supplies. The capsule will implement that over Astrid `net`; the `native-transport`
-feature ships a std/`tungstenite`+rustls implementation for host tools and the e2e tests.
+supplies. A `no_std` target can implement that over its own sockets; the
+`native-transport` feature ships a std/`tungstenite`+rustls implementation for host
+tools and the e2e tests.
 
 ## Compatibility caveats
 
@@ -82,9 +83,9 @@ that repo's own vitest + `@noble` deps, writes the JSON here, and cleans up.
 ## wasm note
 
 The crypto/protocol core is pure-Rust and `alloc`-based, targeting
-`wasm32-unknown-unknown` for the capsule. The one std dependency today is
-`flate2` (NIP-04 GZIP); it will be feature-gated for the wasm build (NIP-04 gzip
-is only needed on the deferred token/payment path, not for DMs).
+`wasm32-unknown-unknown`. The one std dependency today is `flate2` (NIP-04 GZIP);
+it will be feature-gated for the wasm build (NIP-04 gzip is only needed on the
+deferred token/payment path, not for DMs).
 
 ## License
 
