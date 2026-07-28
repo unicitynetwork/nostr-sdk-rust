@@ -23,6 +23,7 @@
 extern crate alloc;
 
 pub mod binding;
+pub mod client;
 pub mod crypto;
 pub mod error;
 pub mod event;

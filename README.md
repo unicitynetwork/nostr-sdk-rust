@@ -30,12 +30,20 @@ from the reference TypeScript SDK** (`cargo test`, 7 tests):
 | UNIP-01 nametag utils | `nametag` | salted hashing, normalize, validation, byte-exact `encrypted_nametag`, marker |
 | UNIP-01 bindings + resolution | `binding` | verify JS binding events, `queryWithFirstSeenWins` (marker/ambiguity/bad-sig/legacy) |
 | NIP-01 filters | `filter` | filter JSON shapes match the reference SDK, local `matches` |
+| Relay client + transport | `client` | **live e2e: publish + read-back a NIP-17 DM through the deployed testnet relay** |
 
 ### Not yet ported (roadmap)
 
-Multi-relay client (subscribe/publish/reconnect/NIP-42/keepalive) · the in-capsule
-TLS+WebSocket transport · token/payment protocols. (NIP-29 group chat is out of
-scope for now.)
+Multi-relay fan-out (broadcast + cross-relay query settlement) · keepalive/reconnect
+supervision · the in-capsule wasm TLS+WebSocket transport (rustls + tungstenite over
+Astrid `net`) · token/payment protocols. (NIP-29 group chat is out of scope for now.)
+
+## Relay client & transport
+
+`client` provides a transport-agnostic single-relay client: relay-message parsing,
+publish, subscribe/query, and NIP-42 AUTH — driven by a `RelayConnection` the caller
+supplies. The capsule will implement that over Astrid `net`; the `native-transport`
+feature ships a std/`tungstenite`+rustls implementation for host tools and the e2e tests.
 
 ## Compatibility caveats
 
@@ -53,8 +61,11 @@ The Unicity wire format is intentionally **non-standard** — a generic `nostr` 
 ## Testing
 
 ```sh
-cargo test          # runs the interop vector tests
-cargo clippy --all-targets
+cargo test          # interop vector tests (no network)
+cargo clippy --all-targets --all-features
+
+# End-to-end against the deployed testnet relay (network; opt-in):
+cargo test --features native-transport --test e2e -- --ignored --nocapture
 ```
 
 The vectors in `tests/vectors/nostr-vectors.json` are generated from the
