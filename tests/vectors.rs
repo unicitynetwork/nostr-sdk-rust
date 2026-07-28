@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use unicity_nostr::crypto::{bech32, nip04, nip44, schnorr};
 use unicity_nostr::nip17::{self, GiftWrapParams};
-use unicity_nostr::{Event, Keypair, LocalSigner, Signer};
+use unicity_nostr::{nametag, Event, Keypair, LocalSigner, Signer};
 
 const VECTORS: &str = include_str!("vectors/nostr-vectors.json");
 
@@ -333,4 +333,82 @@ fn nip17_roundtrip() {
     assert_eq!(pm.sender_pubkey, alice.keypair().public_key_hex());
     assert_eq!(pm.reply_to_event_id.as_deref(), params.reply_to);
     assert_eq!(pm.kind, 14);
+}
+
+#[test]
+fn nametag_vectors() {
+    let v = v();
+    let nt = &v["nametag"];
+
+    for s in nt["sha256_hex"].as_array().unwrap() {
+        assert_eq!(
+            nametag::sha256_hex(s["input"].as_str().unwrap()),
+            s["hex"].as_str().unwrap()
+        );
+    }
+    for m in nt["hash_nametag"].as_array().unwrap() {
+        assert_eq!(
+            nametag::hash_nametag(m["nametag"].as_str().unwrap()),
+            m["hash"].as_str().unwrap(),
+            "hash_nametag {:?}",
+            m["nametag"]
+        );
+    }
+    for m in nt["hash_address"].as_array().unwrap() {
+        assert_eq!(
+            nametag::hash_address_for_tag(m["address"].as_str().unwrap()),
+            m["hash"].as_str().unwrap()
+        );
+    }
+    for m in nt["valid"].as_array().unwrap() {
+        assert_eq!(
+            nametag::is_valid_nametag(m["nametag"].as_str().unwrap()),
+            m["valid"].as_bool().unwrap(),
+            "is_valid_nametag {:?}",
+            m["nametag"]
+        );
+    }
+    // encrypted_nametag: decrypt the reference output, then byte-exact re-encrypt
+    // reusing the reference IV.
+    for m in nt["encrypt"].as_array().unwrap() {
+        let name = m["nametag"].as_str().unwrap();
+        let priv_ = h32(m["priv"].as_str().unwrap());
+        let payload = m["payload"].as_str().unwrap();
+        assert_eq!(
+            nametag::decrypt_nametag(payload, &priv_).unwrap(),
+            name,
+            "nametag decrypt"
+        );
+        let raw = STANDARD.decode(payload).unwrap();
+        let iv: [u8; 12] = raw[..12].try_into().unwrap();
+        let re = nametag::encrypt_nametag_with_iv(name, &priv_, &iv).unwrap();
+        assert_eq!(re, payload, "nametag byte-exact encrypt: {name:?}");
+    }
+}
+
+#[test]
+fn unip01_ownership_marker() {
+    let alice = LocalSigner::from_secret([5u8; 32]).unwrap();
+    let marked = Event::create(
+        &alice,
+        30078,
+        vec![
+            vec!["d".into(), nametag::hash_nametag("alice")],
+            vec!["L".into(), "unicity:nametag".into()],
+        ],
+        "{}".into(),
+        1_700_000_000,
+    )
+    .unwrap();
+    assert!(nametag::has_ownership_marker(&marked));
+
+    let unmarked = Event::create(
+        &alice,
+        30078,
+        vec![vec!["d".into(), "x".into()]],
+        "{}".into(),
+        1,
+    )
+    .unwrap();
+    assert!(!nametag::has_ownership_marker(&unmarked));
 }

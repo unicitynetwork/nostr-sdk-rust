@@ -20,6 +20,7 @@ import * as Bech32 from '../src/crypto/bech32.js';
 import { Event } from '../src/protocol/Event.js';
 import * as EventKinds from '../src/protocol/EventKinds.js';
 import * as NIP17 from '../src/messaging/nip17.js';
+import * as Nametag from '../src/nametag/NametagUtils.js';
 import { NostrKeyManager } from '../src/NostrKeyManager.js';
 
 const OUT =
@@ -139,6 +140,29 @@ describe('gen-vectors', () => {
           js_unwrapped_reply: pm.replyToEventId,
         },
       });
+    }
+
+    // UNIP-01 nametag utils (deterministic hashing/normalization/validation +
+    // recoverable encrypted_nametag). Phone/E.164 nametags are out of scope.
+    v.nametag = {
+      sha256_hex: [{ input: 'unicity:nametag:alice', hex: Nametag.sha256Hex('unicity:nametag:alice') }],
+      hash_nametag: ['Alice', 'bob_the_agent', 'Carol@unicity', '  spaced  '].map((n) => ({
+        nametag: n,
+        hash: Nametag.hashNametag(n),
+      })),
+      hash_address: ['DIRECT://0000abcdef', 'alpha1qxyz'].map((a) => ({
+        address: a,
+        hash: Nametag.hashAddressForTag(a),
+      })),
+      valid: ['@alice', 'ab', 'has space', 'bob_the_agent', 'UPPER'].map((n) => ({
+        nametag: n,
+        valid: Nametag.isValidNametag(n),
+      })),
+      encrypt: [] as any[],
+    };
+    for (const nm of ['my-agent', 'unicode-tag-😀']) {
+      const payload = await Nametag.encryptNametag(nm, hx(privA));
+      v.nametag.encrypt.push({ nametag: nm, priv: hx(privA), payload });
     }
 
     mkdirSync(dirname(OUT), { recursive: true });

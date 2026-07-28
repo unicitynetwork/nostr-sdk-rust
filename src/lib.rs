@@ -27,6 +27,7 @@ pub mod error;
 pub mod event;
 pub mod keys;
 pub mod kinds;
+pub mod nametag;
 pub mod nip17;
 pub mod signer;
 
