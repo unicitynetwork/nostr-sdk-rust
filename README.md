@@ -83,12 +83,20 @@ tools/regen-vectors.sh [path-to-nostr-js-sdk]   # default ../nostr-js-sdk
 This temporarily drops `tools/gen-vectors.test.ts` into the JS SDK, runs it under
 that repo's own vitest + `@noble` deps, writes the JSON here, and cleans up.
 
-## wasm note
+## wasm / no_std
 
-The crypto/protocol core is pure-Rust and `alloc`-based, targeting
-`wasm32-unknown-unknown`. The one std dependency today is `flate2` (NIP-04 GZIP);
-it will be feature-gated for the wasm build (NIP-04 gzip is only needed on the
-deferred token/payment path, not for DMs).
+The crypto/protocol core is `#![no_std]` + `alloc` (enabled when the `std` feature
+is off). Build it for the AOS target with:
+
+```sh
+cargo build --target wasm32-unknown-unknown --no-default-features
+```
+
+Default features: `std` (links the standard library) and `gzip` (NIP-04's GZIP
+extension via `flate2`, which needs `std::io`); drop both for wasm. `native-transport`
+(std/tungstenite) is off by default. GZIP is only used by the token/payment path,
+not DMs — a wasm build without it still does full DM messaging. CI builds this
+target on every push.
 
 ## License
 

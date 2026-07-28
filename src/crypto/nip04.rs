@@ -23,6 +23,7 @@ use sha2::{Digest, Sha256};
 use crate::crypto::secp;
 use crate::error::{Error, Result};
 
+#[cfg(feature = "gzip")]
 const COMPRESSION_THRESHOLD: usize = 1024;
 const COMPRESSION_PREFIX: &str = "gz:";
 
@@ -45,6 +46,7 @@ fn aes_cbc_decrypt(key: &[u8; 32], iv: &[u8; 16], ciphertext: &[u8]) -> Result<V
         .map_err(|_| Error::Decrypt("cbc padding"))
 }
 
+#[cfg(feature = "gzip")]
 fn gzip(data: &[u8]) -> Result<Vec<u8>> {
     use flate2::write::GzEncoder;
     use flate2::Compression;
@@ -55,6 +57,7 @@ fn gzip(data: &[u8]) -> Result<Vec<u8>> {
     e.finish().map_err(|e| Error::Gzip(alloc::format!("{e}")))
 }
 
+#[cfg(feature = "gzip")]
 fn gunzip(data: &[u8]) -> Result<Vec<u8>> {
     use flate2::read::GzDecoder;
     use std::io::Read;
@@ -63,6 +66,34 @@ fn gunzip(data: &[u8]) -> Result<Vec<u8>> {
         .read_to_end(&mut out)
         .map_err(|e| Error::Gzip(alloc::format!("{e}")))?;
     Ok(out)
+}
+
+/// GZIP-compress when the message is large and that shrinks it. Without the
+/// `gzip` feature (e.g. a wasm build) this never compresses.
+#[cfg(feature = "gzip")]
+fn compress_if_large(plaintext: &[u8]) -> Result<(Vec<u8>, bool)> {
+    if plaintext.len() > COMPRESSION_THRESHOLD {
+        let c = gzip(plaintext)?;
+        if c.len() < plaintext.len() {
+            return Ok((c, true));
+        }
+    }
+    Ok((plaintext.to_vec(), false))
+}
+
+#[cfg(not(feature = "gzip"))]
+fn compress_if_large(plaintext: &[u8]) -> Result<(Vec<u8>, bool)> {
+    Ok((plaintext.to_vec(), false))
+}
+
+#[cfg(feature = "gzip")]
+fn decompress(data: &[u8]) -> Result<Vec<u8>> {
+    gunzip(data)
+}
+
+#[cfg(not(feature = "gzip"))]
+fn decompress(_data: &[u8]) -> Result<Vec<u8>> {
+    Err(Error::Gzip(String::from("gzip feature disabled")))
 }
 
 fn format(ciphertext: &[u8], iv: &[u8; 16], compressed: bool) -> String {
@@ -97,17 +128,7 @@ pub fn encrypt_auto_with_iv(
     iv: &[u8; 16],
 ) -> Result<String> {
     let secret = derive_shared_secret(my_secret, peer_xonly)?;
-    let plaintext = message.as_bytes();
-    let (data, compressed) = if plaintext.len() > COMPRESSION_THRESHOLD {
-        let c = gzip(plaintext)?;
-        if c.len() < plaintext.len() {
-            (c, true)
-        } else {
-            (plaintext.to_vec(), false)
-        }
-    } else {
-        (plaintext.to_vec(), false)
-    };
+    let (data, compressed) = compress_if_large(message.as_bytes())?;
     let ct = aes_cbc_encrypt(&secret, iv, &data);
     Ok(format(&ct, iv, compressed))
 }
@@ -134,7 +155,7 @@ pub fn decrypt(my_secret: &[u8; 32], peer_xonly: &[u8; 32], payload: &str) -> Re
     let secret = derive_shared_secret(my_secret, peer_xonly)?;
     let mut plaintext = aes_cbc_decrypt(&secret, &iv, &ct)?;
     if compressed {
-        plaintext = gunzip(&plaintext)?;
+        plaintext = decompress(&plaintext)?;
     }
     String::from_utf8(plaintext).map_err(|_| Error::Utf8)
 }
@@ -156,17 +177,7 @@ pub fn encrypt_auto_with_secret_iv(
     iv: &[u8; 16],
     message: &str,
 ) -> Result<String> {
-    let plaintext = message.as_bytes();
-    let (data, compressed) = if plaintext.len() > COMPRESSION_THRESHOLD {
-        let c = gzip(plaintext)?;
-        if c.len() < plaintext.len() {
-            (c, true)
-        } else {
-            (plaintext.to_vec(), false)
-        }
-    } else {
-        (plaintext.to_vec(), false)
-    };
+    let (data, compressed) = compress_if_large(message.as_bytes())?;
     let ct = aes_cbc_encrypt(secret, iv, &data);
     Ok(format(&ct, iv, compressed))
 }
@@ -191,7 +202,7 @@ pub fn decrypt_with_secret(secret: &[u8; 32], payload: &str) -> Result<String> {
         .map_err(|_| Error::InvalidLength("iv != 16"))?;
     let mut plaintext = aes_cbc_decrypt(secret, &iv, &ct)?;
     if compressed {
-        plaintext = gunzip(&plaintext)?;
+        plaintext = decompress(&plaintext)?;
     }
     String::from_utf8(plaintext).map_err(|_| Error::Utf8)
 }
