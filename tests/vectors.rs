@@ -8,6 +8,7 @@ use base64::Engine;
 use serde_json::Value;
 
 use unicity_nostr::crypto::{bech32, nip04, nip44, schnorr};
+use unicity_nostr::nip17::{self, GiftWrapParams};
 use unicity_nostr::{Event, Keypair, LocalSigner, Signer};
 
 const VECTORS: &str = include_str!("vectors/nostr-vectors.json");
@@ -247,4 +248,89 @@ fn nip44_vectors() {
         let re = nip44::encrypt_with_key_nonce(&conv, &nonce, plaintext.as_bytes()).unwrap();
         assert_eq!(re, payload, "nip44 byte-exact encrypt: {plaintext:?}");
     }
+}
+
+#[test]
+fn nip17_unwrap_reference_giftwraps() {
+    // The crucial interop direction: Rust unwraps a gift wrap produced by the TS SDK
+    // (i.e. an AOS agent reads a DM sent by a Sphere wallet).
+    let v = v();
+    let bob = LocalSigner::from_secret(h32(v["keys"]["bob"]["priv"].as_str().unwrap())).unwrap();
+    let alice =
+        LocalSigner::from_secret(h32(v["keys"]["alice"]["priv"].as_str().unwrap())).unwrap();
+
+    for m in v["nip17"]["messages"].as_array().unwrap() {
+        let gw: Event = serde_json::from_value(m["gift_wrap"].clone()).unwrap();
+        let expect = &m["expect"];
+        assert_eq!(gw.kind, 1059, "gift wrap kind");
+
+        let pm = nip17::unwrap(&bob, &gw).unwrap();
+        assert_eq!(
+            pm.content,
+            expect["content"].as_str().unwrap(),
+            "nip17 content"
+        );
+        assert_eq!(
+            pm.sender_pubkey,
+            expect["sender_pub"].as_str().unwrap(),
+            "nip17 sender"
+        );
+        assert_eq!(
+            pm.recipient_pubkey,
+            expect["recipient_pub"].as_str().unwrap(),
+            "nip17 recipient"
+        );
+        assert_eq!(
+            pm.kind,
+            expect["kind"].as_u64().unwrap() as u32,
+            "nip17 rumor kind"
+        );
+        if let Some(reply) = expect.get("reply_to").and_then(|r| r.as_str()) {
+            assert_eq!(
+                pm.reply_to_event_id.as_deref(),
+                Some(reply),
+                "nip17 reply-to"
+            );
+        }
+
+        // Wrong recipient (the sender) cannot unwrap.
+        assert!(
+            nip17::unwrap(&alice, &gw).is_err(),
+            "non-recipient must not unwrap"
+        );
+    }
+}
+
+#[test]
+fn nip17_roundtrip() {
+    // Rust builds a gift wrap and unwraps it; also confirm the sender identity
+    // survives (proving the seal signs/encrypts correctly through the Signer seam).
+    let v = v();
+    let alice =
+        LocalSigner::from_secret(h32(v["keys"]["alice"]["priv"].as_str().unwrap())).unwrap();
+    let bob = LocalSigner::from_secret(h32(v["keys"]["bob"]["priv"].as_str().unwrap())).unwrap();
+    let bob_pub = h32(v["keys"]["bob"]["xonly_pub"].as_str().unwrap());
+
+    let params = GiftWrapParams {
+        content: "gm bob, from rust 🦀",
+        reply_to: Some("00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00ff"),
+        rumor_created_at: 1_712_000_000,
+        seal_created_at: 1_712_000_123,
+        wrap_created_at: 1_711_999_888,
+        ephemeral_secret: [9u8; 32],
+        seal_nonce: [3u8; 24],
+        wrap_nonce: [4u8; 24],
+    };
+    let gw = nip17::create_gift_wrap(&alice, &bob_pub, &params).unwrap();
+    assert_eq!(gw.kind, 1059);
+    assert!(
+        gw.verify(),
+        "gift wrap self-signature (ephemeral key) must verify"
+    );
+
+    let pm = nip17::unwrap(&bob, &gw).unwrap();
+    assert_eq!(pm.content, "gm bob, from rust 🦀");
+    assert_eq!(pm.sender_pubkey, alice.keypair().public_key_hex());
+    assert_eq!(pm.reply_to_event_id.as_deref(), params.reply_to);
+    assert_eq!(pm.kind, 14);
 }

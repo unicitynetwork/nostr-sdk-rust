@@ -26,9 +26,12 @@ pub mod crypto;
 pub mod error;
 pub mod event;
 pub mod keys;
+pub mod kinds;
+pub mod nip17;
 pub mod signer;
 
 pub use error::{Error, Result};
 pub use event::{Event, Tag};
 pub use keys::Keypair;
+pub use nip17::{GiftWrapParams, PrivateMessage, Rumor};
 pub use signer::{LocalSigner, Signer};

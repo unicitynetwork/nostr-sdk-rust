@@ -18,6 +18,9 @@ import * as NIP04 from '../src/crypto/nip04.js';
 import * as NIP44 from '../src/crypto/nip44.js';
 import * as Bech32 from '../src/crypto/bech32.js';
 import { Event } from '../src/protocol/Event.js';
+import * as EventKinds from '../src/protocol/EventKinds.js';
+import * as NIP17 from '../src/messaging/nip17.js';
+import { NostrKeyManager } from '../src/NostrKeyManager.js';
 
 const OUT =
   process.env.VECTORS_OUT ||
@@ -94,6 +97,49 @@ describe('gen-vectors', () => {
 
     v.bech32.push({ hrp: 'npub', hex: hx(pubA), encoded: Bech32.encodeNpub(pubA) });
     v.bech32.push({ hrp: 'nsec', hex: hx(privA), encoded: Bech32.encodeNsec(privA) });
+
+    // NIP-17 gift-wrapped DMs. Gift wraps are non-deterministic (random ephemeral
+    // key + timestamps + nonces), so we emit a real gift wrap from alice->bob and
+    // the Rust port asserts it UNWRAPS to the expected rumor. We also self-check
+    // the unwrap here in JS.
+    const aliceKM = NostrKeyManager.fromPrivateKeyHex(hx(privA));
+    const bobKM = NostrKeyManager.fromPrivateKeyHex(hx(privB));
+    const bobPubHex = hx(pubB);
+    v.nip17 = { messages: [] as any[] };
+    {
+      const content = 'hey bob 👋 gm from the reference sdk';
+      const gw = NIP17.createGiftWrap(aliceKM, bobPubHex, content);
+      const pm = NIP17.unwrap(gw, bobKM);
+      v.nip17.messages.push({
+        desc: 'basic',
+        gift_wrap: gw.toJSON(),
+        expect: {
+          sender_pub: hx(pubA),
+          recipient_pub: hx(pubB),
+          content,
+          kind: EventKinds.CHAT_MESSAGE,
+          js_unwrapped_content: pm.content,
+        },
+      });
+    }
+    {
+      const replyId = v.event_ids[0].id;
+      const content = 'this is a reply';
+      const gw = NIP17.createGiftWrap(aliceKM, bobPubHex, content, { replyToEventId: replyId });
+      const pm = NIP17.unwrap(gw, bobKM);
+      v.nip17.messages.push({
+        desc: 'reply',
+        gift_wrap: gw.toJSON(),
+        expect: {
+          sender_pub: hx(pubA),
+          recipient_pub: hx(pubB),
+          content,
+          kind: EventKinds.CHAT_MESSAGE,
+          reply_to: replyId,
+          js_unwrapped_reply: pm.replyToEventId,
+        },
+      });
+    }
 
     mkdirSync(dirname(OUT), { recursive: true });
     writeFileSync(OUT, JSON.stringify(v, null, 2));
