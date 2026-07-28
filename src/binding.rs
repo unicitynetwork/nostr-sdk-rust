@@ -214,10 +214,7 @@ pub fn is_valid_binding_event(event: &Event) -> bool {
 ///   from the marked set: exactly one marked author wins; more than one distinct
 ///   marked author is ambiguous → `None`. Self-asserted `created_at` is ignored.
 /// * Otherwise (legacy) first-seen-wins by `created_at`, lexicographic-pubkey tie-break.
-fn resolve_filtered<'a>(
-    events: &'a [Event],
-    include: impl Fn(&Event) -> bool,
-) -> Option<&'a Event> {
+fn resolve_filtered(events: &[Event], include: impl Fn(&Event) -> bool) -> Option<&Event> {
     // author pubkey -> (first_seen, latest_idx, latest_created_at)
     let mut authors: BTreeMap<&str, (i64, usize, i64)> = BTreeMap::new();
     for (i, ev) in events.iter().enumerate() {
