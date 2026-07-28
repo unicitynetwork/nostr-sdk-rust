@@ -66,13 +66,16 @@ impl Filter {
 
     /// Does `event` satisfy every constraint in this filter?
     pub fn matches(&self, event: &Event) -> bool {
+        // NIP-01: `ids`/`authors` entries match as prefixes of the event id / pubkey
+        // (a full 64-char value is just an exact prefix). An empty list is no constraint.
         if let Some(ids) = &self.ids {
-            if !ids.iter().any(|i| i == &event.id) {
+            if !ids.is_empty() && !ids.iter().any(|i| event.id.starts_with(i.as_str())) {
                 return false;
             }
         }
         if let Some(authors) = &self.authors {
-            if !authors.iter().any(|a| a == &event.pubkey) {
+            if !authors.is_empty() && !authors.iter().any(|a| event.pubkey.starts_with(a.as_str()))
+            {
                 return false;
             }
         }

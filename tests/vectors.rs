@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use unicity_nostr::crypto::{bech32, nip04, nip44, schnorr};
 use unicity_nostr::nip17::{self, GiftWrapParams};
-use unicity_nostr::{binding, nametag, Event, Keypair, LocalSigner, Signer};
+use unicity_nostr::{binding, nametag, Event, Filter, Keypair, LocalSigner, Signer};
 
 const VECTORS: &str = include_str!("vectors/nostr-vectors.json");
 
@@ -524,5 +524,122 @@ fn resolution_legacy_first_seen_wins() {
         binding::resolve_pubkey(&[mk(&a, 150), mk(&b, 150)]),
         Some(expected),
         "tie-break by smaller pubkey"
+    );
+}
+
+#[test]
+fn resolution_rejects_relay_injection() {
+    // Hardening (Codex P1): resolve_nametag_* enforces the requested nametag +
+    // binding structure locally, so a malicious relay cannot inject events that
+    // did not match the query.
+    let alice = LocalSigner::from_secret([1u8; 32]).unwrap();
+    let attacker = LocalSigner::from_secret([2u8; 32]).unwrap();
+
+    // Legit marked binding for "target" owned by alice.
+    let legit =
+        binding::create_binding_event(&alice, "target", "DIRECT://a", 10, 10, None, None).unwrap();
+    // Injection 1: attacker-signed kind-1 note (NOT a binding) carrying the marker
+    // and the target's d-tag.
+    let inj_note = Event::create(
+        &attacker,
+        1,
+        vec![
+            vec!["L".into(), "unicity:nametag".into()],
+            vec!["d".into(), nametag::hash_nametag("target")],
+        ],
+        "{}".into(),
+        20,
+    )
+    .unwrap();
+    // Injection 2: attacker's valid marked binding for a DIFFERENT nametag.
+    let inj_other =
+        binding::create_binding_event(&attacker, "other", "DIRECT://x", 5, 5, None, None).unwrap();
+
+    let events = vec![legit, inj_note, inj_other];
+    // Safe resolution ignores both injections => alice owns "target".
+    assert_eq!(
+        binding::resolve_nametag_pubkey(&events, "target").as_deref(),
+        Some(alice.keypair().public_key_hex().as_str()),
+        "injected non-matching events must be ignored"
+    );
+
+    // Attacker-only injection cannot hijack an unclaimed nametag.
+    let attacker_note = Event::create(
+        &attacker,
+        1,
+        vec![
+            vec!["L".into(), "unicity:nametag".into()],
+            vec!["d".into(), nametag::hash_nametag("victim")],
+        ],
+        "{}".into(),
+        1,
+    )
+    .unwrap();
+    assert!(
+        binding::resolve_nametag_owner(core::slice::from_ref(&attacker_note), "victim").is_none(),
+        "a non-binding marked event must not win a nametag"
+    );
+}
+
+#[test]
+fn filter_matches() {
+    // Codex P2: ids/authors match as NIP-01 prefixes; plus kind/since/until/tags.
+    let alice = LocalSigner::from_secret([1u8; 32]).unwrap();
+    let ev = Event::create(
+        &alice,
+        1,
+        vec![vec!["t".into(), "topic".into()]],
+        "hi".into(),
+        100,
+    )
+    .unwrap();
+    let pk = alice.keypair().public_key_hex();
+
+    assert!(
+        Filter::builder().authors([pk.clone()]).build().matches(&ev),
+        "full author"
+    );
+    assert!(
+        Filter::builder()
+            .authors([pk[..8].to_string()])
+            .build()
+            .matches(&ev),
+        "author prefix"
+    );
+    assert!(
+        !Filter::builder()
+            .authors(["ffffffff".to_string()])
+            .build()
+            .matches(&ev),
+        "wrong author prefix"
+    );
+    assert!(
+        Filter::builder()
+            .ids([ev.id[..6].to_string()])
+            .build()
+            .matches(&ev),
+        "id prefix"
+    );
+    assert!(Filter::builder()
+        .kind(1)
+        .since(100)
+        .until(100)
+        .t_tags(["topic".to_string()])
+        .build()
+        .matches(&ev));
+    assert!(
+        !Filter::builder().kind(2).build().matches(&ev),
+        "wrong kind"
+    );
+    assert!(
+        !Filter::builder().since(101).build().matches(&ev),
+        "since after"
+    );
+    assert!(
+        !Filter::builder()
+            .t_tags(["nope".to_string()])
+            .build()
+            .matches(&ev),
+        "wrong tag"
     );
 }

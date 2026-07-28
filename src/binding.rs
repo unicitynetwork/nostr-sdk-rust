@@ -205,20 +205,23 @@ pub fn is_valid_binding_event(event: &Event) -> bool {
     ok_content && event.verify()
 }
 
-/// UNIP-01 owner selection over the binding events a relay returned.
+/// UNIP-01 owner selection over binding events, including only events for which
+/// `include` returns true.
 ///
-/// * Signature-invalid events are skipped (anti-injection).
-/// * Per author, the *latest* (max `created_at`) event is that author's current
-///   binding; `first_seen` is the author's earliest `created_at`.
+/// * Per author, the *latest* (max `created_at`) included event is that author's
+///   current binding; `first_seen` is the author's earliest included `created_at`.
 /// * If any author's current binding carries the UNIP-01 marker, ownership comes
 ///   from the marked set: exactly one marked author wins; more than one distinct
 ///   marked author is ambiguous → `None`. Self-asserted `created_at` is ignored.
 /// * Otherwise (legacy) first-seen-wins by `created_at`, lexicographic-pubkey tie-break.
-pub fn resolve_owner(events: &[Event]) -> Option<&Event> {
+fn resolve_filtered<'a>(
+    events: &'a [Event],
+    include: impl Fn(&Event) -> bool,
+) -> Option<&'a Event> {
     // author pubkey -> (first_seen, latest_idx, latest_created_at)
     let mut authors: BTreeMap<&str, (i64, usize, i64)> = BTreeMap::new();
     for (i, ev) in events.iter().enumerate() {
-        if !ev.verify() {
+        if !include(ev) {
             continue;
         }
         authors
@@ -268,7 +271,33 @@ pub fn resolve_owner(events: &[Event]) -> Option<&Event> {
     winner.map(|(_, _, idx)| &events[idx])
 }
 
-/// Convenience: resolve the owning author's x-only pubkey (hex).
+/// Low-level owner selection over a set of binding events. Only signatures are
+/// checked, so this trusts the caller to have supplied events that actually match
+/// the intended query. **A relay is untrusted** — prefer [`resolve_nametag_owner`]
+/// / [`resolve_nametag_pubkey`], which enforce the requested nametag locally.
+pub fn resolve_owner(events: &[Event]) -> Option<&Event> {
+    resolve_filtered(events, |ev| ev.verify())
+}
+
+/// Convenience over [`resolve_owner`].
 pub fn resolve_pubkey(events: &[Event]) -> Option<String> {
     resolve_owner(events).map(|e| e.pubkey.clone())
+}
+
+/// Resolve the owner of `nametag_id` from relay-returned events, **enforcing the
+/// requested identity locally** so a malicious relay cannot inject events that
+/// did not match the query (a non-binding event carrying the marker, or a binding
+/// for a different nametag). An event is counted only if it is a valid binding
+/// event (kind 30078, well-formed content, valid signature) whose `d` tag equals
+/// `hash_nametag(nametag_id)`.
+pub fn resolve_nametag_owner<'a>(events: &'a [Event], nametag_id: &str) -> Option<&'a Event> {
+    let want = nametag::hash_nametag(nametag_id);
+    resolve_filtered(events, move |ev| {
+        is_valid_binding_event(ev) && ev.tag_value("d") == Some(want.as_str())
+    })
+}
+
+/// Convenience over [`resolve_nametag_owner`]: the owner's x-only pubkey (hex).
+pub fn resolve_nametag_pubkey(events: &[Event], nametag_id: &str) -> Option<String> {
+    resolve_nametag_owner(events, nametag_id).map(|e| e.pubkey.clone())
 }
