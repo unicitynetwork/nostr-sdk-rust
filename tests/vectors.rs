@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use unicity_nostr::crypto::{bech32, nip04, nip44, schnorr};
 use unicity_nostr::nip17::{self, GiftWrapParams};
-use unicity_nostr::{nametag, Event, Keypair, LocalSigner, Signer};
+use unicity_nostr::{binding, nametag, Event, Filter, Keypair, LocalSigner, Signer};
 
 const VECTORS: &str = include_str!("vectors/nostr-vectors.json");
 
@@ -411,4 +411,235 @@ fn unip01_ownership_marker() {
     )
     .unwrap();
     assert!(!nametag::has_ownership_marker(&unmarked));
+}
+
+fn binding_event(v: &Value, desc: &str) -> Event {
+    let e = v["binding"]["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["desc"] == desc)
+        .unwrap();
+    serde_json::from_value(e["event"].clone()).unwrap()
+}
+
+#[test]
+fn filter_shapes() {
+    let v = v();
+    for f in v["binding"]["filters"].as_array().unwrap() {
+        let input = f["input"].as_str().unwrap();
+        let filter = match f["kind"].as_str().unwrap() {
+            "nametag" => binding::create_nametag_to_pubkey_filter(input),
+            "address" => binding::create_address_to_binding_filter(input),
+            "pubkey" => binding::create_pubkey_to_nametag_filter(input),
+            other => panic!("unexpected filter kind {other}"),
+        };
+        let got: Value = serde_json::from_str(&filter.to_json()).unwrap();
+        assert_eq!(got, f["json"], "filter {:?}", f["kind"]);
+    }
+}
+
+#[test]
+fn binding_events_verify() {
+    let v = v();
+    for e in v["binding"]["events"].as_array().unwrap() {
+        let ev: Event = serde_json::from_value(e["event"].clone()).unwrap();
+        assert!(ev.verify(), "binding event verifies: {:?}", e["desc"]);
+        assert!(
+            binding::is_valid_binding_event(&ev),
+            "is_valid_binding_event"
+        );
+        assert!(nametag::has_ownership_marker(&ev), "marker present");
+        assert_eq!(ev.pubkey, e["author_pub"].as_str().unwrap());
+        assert_eq!(
+            ev.tag_value("d").unwrap(),
+            nametag::hash_nametag(e["nametag"].as_str().unwrap()),
+            "d-tag == hashed nametag"
+        );
+    }
+}
+
+#[test]
+fn unip01_resolution() {
+    let v = v();
+    let alice_shared = binding_event(&v, "alice-shared");
+    let bob_shared = binding_event(&v, "bob-shared");
+    let alice_only = binding_event(&v, "alice-only");
+    let alice_pub = v["keys"]["alice"]["xonly_pub"].as_str().unwrap();
+
+    // Single marked owner resolves to that author.
+    assert_eq!(
+        binding::resolve_pubkey(core::slice::from_ref(&alice_only)).as_deref(),
+        Some(alice_pub)
+    );
+
+    // Two distinct marked owners for the same nametag => ambiguous => None.
+    assert!(
+        binding::resolve_owner(&[alice_shared.clone(), bob_shared.clone()]).is_none(),
+        "two marked owners must be ambiguous"
+    );
+
+    // Bad-signature events are skipped: tampering bob's binding leaves alice the
+    // sole valid marked owner.
+    let mut bob_bad = bob_shared.clone();
+    bob_bad.content.push('X');
+    assert!(!bob_bad.verify());
+    assert_eq!(
+        binding::resolve_pubkey(&[alice_shared, bob_bad]).as_deref(),
+        Some(alice_pub),
+        "forged event skipped"
+    );
+}
+
+#[test]
+fn resolution_legacy_first_seen_wins() {
+    // Legacy (unmarked) path: earliest created_at wins, lexicographic-pubkey tie-break.
+    let a = LocalSigner::from_secret([1u8; 32]).unwrap();
+    let b = LocalSigner::from_secret([2u8; 32]).unwrap();
+    let content = r#"{"nametag_hash":"n","address":"x"}"#;
+    let mk = |s: &LocalSigner, created: i64| {
+        Event::create(
+            s,
+            30078,
+            vec![vec!["d".into(), "n".into()]],
+            content.into(),
+            created,
+        )
+        .unwrap()
+    };
+
+    let a_old = mk(&a, 100);
+    let b_new = mk(&b, 200);
+    assert_eq!(
+        binding::resolve_pubkey(&[b_new, a_old]).as_deref(),
+        Some(a.keypair().public_key_hex().as_str()),
+        "earlier created_at wins"
+    );
+
+    // Tie on created_at => lexicographically smaller pubkey.
+    let a_pk = a.keypair().public_key_hex();
+    let b_pk = b.keypair().public_key_hex();
+    let expected = core::cmp::min(a_pk.clone(), b_pk.clone());
+    assert_eq!(
+        binding::resolve_pubkey(&[mk(&a, 150), mk(&b, 150)]),
+        Some(expected),
+        "tie-break by smaller pubkey"
+    );
+}
+
+#[test]
+fn resolution_rejects_relay_injection() {
+    // Hardening (Codex P1): resolve_nametag_* enforces the requested nametag +
+    // binding structure locally, so a malicious relay cannot inject events that
+    // did not match the query.
+    let alice = LocalSigner::from_secret([1u8; 32]).unwrap();
+    let attacker = LocalSigner::from_secret([2u8; 32]).unwrap();
+
+    // Legit marked binding for "target" owned by alice.
+    let legit =
+        binding::create_binding_event(&alice, "target", "DIRECT://a", 10, 10, None, None).unwrap();
+    // Injection 1: attacker-signed kind-1 note (NOT a binding) carrying the marker
+    // and the target's d-tag.
+    let inj_note = Event::create(
+        &attacker,
+        1,
+        vec![
+            vec!["L".into(), "unicity:nametag".into()],
+            vec!["d".into(), nametag::hash_nametag("target")],
+        ],
+        "{}".into(),
+        20,
+    )
+    .unwrap();
+    // Injection 2: attacker's valid marked binding for a DIFFERENT nametag.
+    let inj_other =
+        binding::create_binding_event(&attacker, "other", "DIRECT://x", 5, 5, None, None).unwrap();
+
+    let events = vec![legit, inj_note, inj_other];
+    // Safe resolution ignores both injections => alice owns "target".
+    assert_eq!(
+        binding::resolve_nametag_pubkey(&events, "target").as_deref(),
+        Some(alice.keypair().public_key_hex().as_str()),
+        "injected non-matching events must be ignored"
+    );
+
+    // Attacker-only injection cannot hijack an unclaimed nametag.
+    let attacker_note = Event::create(
+        &attacker,
+        1,
+        vec![
+            vec!["L".into(), "unicity:nametag".into()],
+            vec!["d".into(), nametag::hash_nametag("victim")],
+        ],
+        "{}".into(),
+        1,
+    )
+    .unwrap();
+    assert!(
+        binding::resolve_nametag_owner(core::slice::from_ref(&attacker_note), "victim").is_none(),
+        "a non-binding marked event must not win a nametag"
+    );
+}
+
+#[test]
+fn filter_matches() {
+    // Codex P2: ids/authors match as NIP-01 prefixes; plus kind/since/until/tags.
+    let alice = LocalSigner::from_secret([1u8; 32]).unwrap();
+    let ev = Event::create(
+        &alice,
+        1,
+        vec![vec!["t".into(), "topic".into()]],
+        "hi".into(),
+        100,
+    )
+    .unwrap();
+    let pk = alice.keypair().public_key_hex();
+
+    assert!(
+        Filter::builder().authors([pk.clone()]).build().matches(&ev),
+        "full author"
+    );
+    assert!(
+        Filter::builder()
+            .authors([pk[..8].to_string()])
+            .build()
+            .matches(&ev),
+        "author prefix"
+    );
+    assert!(
+        !Filter::builder()
+            .authors(["ffffffff".to_string()])
+            .build()
+            .matches(&ev),
+        "wrong author prefix"
+    );
+    assert!(
+        Filter::builder()
+            .ids([ev.id[..6].to_string()])
+            .build()
+            .matches(&ev),
+        "id prefix"
+    );
+    assert!(Filter::builder()
+        .kind(1)
+        .since(100)
+        .until(100)
+        .t_tags(["topic".to_string()])
+        .build()
+        .matches(&ev));
+    assert!(
+        !Filter::builder().kind(2).build().matches(&ev),
+        "wrong kind"
+    );
+    assert!(
+        !Filter::builder().since(101).build().matches(&ev),
+        "since after"
+    );
+    assert!(
+        !Filter::builder()
+            .t_tags(["nope".to_string()])
+            .build()
+            .matches(&ev),
+        "wrong tag"
+    );
 }

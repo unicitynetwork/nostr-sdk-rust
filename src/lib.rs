@@ -22,9 +22,11 @@
 
 extern crate alloc;
 
+pub mod binding;
 pub mod crypto;
 pub mod error;
 pub mod event;
+pub mod filter;
 pub mod keys;
 pub mod kinds;
 pub mod nametag;
@@ -33,6 +35,7 @@ pub mod signer;
 
 pub use error::{Error, Result};
 pub use event::{Event, Tag};
+pub use filter::{Filter, FilterBuilder};
 pub use keys::Keypair;
 pub use nip17::{GiftWrapParams, PrivateMessage, Rumor};
 pub use signer::{LocalSigner, Signer};
