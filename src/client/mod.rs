@@ -21,6 +21,8 @@ use crate::filter::Filter;
 use crate::kinds;
 use crate::signer::Signer;
 
+pub mod multi;
+
 #[cfg(feature = "native-transport")]
 pub mod native;
 
@@ -258,6 +260,41 @@ impl<'s, C: RelayConnection, S: Signer> RelayClient<'s, C, S> {
         }
         let _ = self.send_close(&sub_id);
         Ok(events)
+    }
+
+    /// Open a long-lived subscription (send `REQ`) without draining it, for
+    /// persistent listeners (e.g. inbound DMs). Pair with [`Self::poll`].
+    pub fn subscribe(&mut self, sub_id: &str, filter: &Filter) -> Result<()> {
+        self.send_req(sub_id, filter)
+    }
+
+    /// Close a subscription (send `CLOSE`).
+    pub fn unsubscribe(&mut self, sub_id: &str) -> Result<()> {
+        self.send_close(sub_id)
+    }
+
+    /// Receive the next relay message on any subscription (persistent listen).
+    /// Answers NIP-42 AUTH transparently and returns `Ok(None)` on idle timeout.
+    /// The caller re-subscribes on an [`RelayMessage::Auth`] (the relay may have
+    /// dropped pre-auth subscriptions).
+    pub fn poll(&mut self, timeout: Duration) -> Result<Option<RelayMessage>> {
+        self.recv_msg(timeout)
+    }
+
+    /// Convenience over [`Self::poll`]: the next signature-valid event and its
+    /// subscription id, or `None` for a non-event frame / idle timeout.
+    pub fn poll_event(&mut self, timeout: Duration) -> Result<Option<(String, Event)>> {
+        match self.recv_msg(timeout)? {
+            Some(RelayMessage::Event { sub_id, event }) if event.verify() => {
+                Ok(Some((sub_id, *event)))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// The relay URL this client is bound to.
+    pub fn url(&self) -> &str {
+        &self.url
     }
 
     /// Close the underlying connection.
