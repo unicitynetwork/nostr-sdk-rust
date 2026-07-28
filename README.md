@@ -26,12 +26,16 @@ from the reference TypeScript SDK** (`cargo test`, 7 tests):
 | NIP-44 (TS AEAD variant) | `crypto::nip44` | conversation key + symmetry + byte-exact AEAD encrypt/decrypt |
 | NIP-19 bech32 | `crypto::bech32` | npub/nsec encode + decode round-trip |
 | Keys / Signer seam | `keys`, `signer` | key derivation, `LocalSigner`, end-to-end event |
+| NIP-17 gift-wrap DMs | `nip17` | Rust unwraps TS-produced gift wraps (+ reply), non-recipient rejection, round-trip |
+| UNIP-01 nametag utils | `nametag` | salted hashing, normalize, validation, byte-exact `encrypted_nametag`, marker |
+| UNIP-01 bindings + resolution | `binding` | verify JS binding events, `queryWithFirstSeenWins` (marker/ambiguity/bad-sig/legacy) |
+| NIP-01 filters | `filter` | filter JSON shapes match the reference SDK, local `matches` |
 
 ### Not yet ported (roadmap)
 
-NIP-17 gift-wrap DMs · UNIP-01 nametag/identity bindings + first-seen-wins
-resolution · `Filter` · multi-relay client (subscribe/publish/reconnect/NIP-42) ·
-the in-capsule TLS+WebSocket transport · NIP-29 group chat · token/payment protocols.
+Multi-relay client (subscribe/publish/reconnect/NIP-42/keepalive) · the in-capsule
+TLS+WebSocket transport · token/payment protocols. (NIP-29 group chat is out of
+scope for now.)
 
 ## Compatibility caveats
 

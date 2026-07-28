@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use unicity_nostr::crypto::{bech32, nip04, nip44, schnorr};
 use unicity_nostr::nip17::{self, GiftWrapParams};
-use unicity_nostr::{nametag, Event, Keypair, LocalSigner, Signer};
+use unicity_nostr::{binding, nametag, Event, Keypair, LocalSigner, Signer};
 
 const VECTORS: &str = include_str!("vectors/nostr-vectors.json");
 
@@ -411,4 +411,118 @@ fn unip01_ownership_marker() {
     )
     .unwrap();
     assert!(!nametag::has_ownership_marker(&unmarked));
+}
+
+fn binding_event(v: &Value, desc: &str) -> Event {
+    let e = v["binding"]["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["desc"] == desc)
+        .unwrap();
+    serde_json::from_value(e["event"].clone()).unwrap()
+}
+
+#[test]
+fn filter_shapes() {
+    let v = v();
+    for f in v["binding"]["filters"].as_array().unwrap() {
+        let input = f["input"].as_str().unwrap();
+        let filter = match f["kind"].as_str().unwrap() {
+            "nametag" => binding::create_nametag_to_pubkey_filter(input),
+            "address" => binding::create_address_to_binding_filter(input),
+            "pubkey" => binding::create_pubkey_to_nametag_filter(input),
+            other => panic!("unexpected filter kind {other}"),
+        };
+        let got: Value = serde_json::from_str(&filter.to_json()).unwrap();
+        assert_eq!(got, f["json"], "filter {:?}", f["kind"]);
+    }
+}
+
+#[test]
+fn binding_events_verify() {
+    let v = v();
+    for e in v["binding"]["events"].as_array().unwrap() {
+        let ev: Event = serde_json::from_value(e["event"].clone()).unwrap();
+        assert!(ev.verify(), "binding event verifies: {:?}", e["desc"]);
+        assert!(
+            binding::is_valid_binding_event(&ev),
+            "is_valid_binding_event"
+        );
+        assert!(nametag::has_ownership_marker(&ev), "marker present");
+        assert_eq!(ev.pubkey, e["author_pub"].as_str().unwrap());
+        assert_eq!(
+            ev.tag_value("d").unwrap(),
+            nametag::hash_nametag(e["nametag"].as_str().unwrap()),
+            "d-tag == hashed nametag"
+        );
+    }
+}
+
+#[test]
+fn unip01_resolution() {
+    let v = v();
+    let alice_shared = binding_event(&v, "alice-shared");
+    let bob_shared = binding_event(&v, "bob-shared");
+    let alice_only = binding_event(&v, "alice-only");
+    let alice_pub = v["keys"]["alice"]["xonly_pub"].as_str().unwrap();
+
+    // Single marked owner resolves to that author.
+    assert_eq!(
+        binding::resolve_pubkey(core::slice::from_ref(&alice_only)).as_deref(),
+        Some(alice_pub)
+    );
+
+    // Two distinct marked owners for the same nametag => ambiguous => None.
+    assert!(
+        binding::resolve_owner(&[alice_shared.clone(), bob_shared.clone()]).is_none(),
+        "two marked owners must be ambiguous"
+    );
+
+    // Bad-signature events are skipped: tampering bob's binding leaves alice the
+    // sole valid marked owner.
+    let mut bob_bad = bob_shared.clone();
+    bob_bad.content.push('X');
+    assert!(!bob_bad.verify());
+    assert_eq!(
+        binding::resolve_pubkey(&[alice_shared, bob_bad]).as_deref(),
+        Some(alice_pub),
+        "forged event skipped"
+    );
+}
+
+#[test]
+fn resolution_legacy_first_seen_wins() {
+    // Legacy (unmarked) path: earliest created_at wins, lexicographic-pubkey tie-break.
+    let a = LocalSigner::from_secret([1u8; 32]).unwrap();
+    let b = LocalSigner::from_secret([2u8; 32]).unwrap();
+    let content = r#"{"nametag_hash":"n","address":"x"}"#;
+    let mk = |s: &LocalSigner, created: i64| {
+        Event::create(
+            s,
+            30078,
+            vec![vec!["d".into(), "n".into()]],
+            content.into(),
+            created,
+        )
+        .unwrap()
+    };
+
+    let a_old = mk(&a, 100);
+    let b_new = mk(&b, 200);
+    assert_eq!(
+        binding::resolve_pubkey(&[b_new, a_old]).as_deref(),
+        Some(a.keypair().public_key_hex().as_str()),
+        "earlier created_at wins"
+    );
+
+    // Tie on created_at => lexicographically smaller pubkey.
+    let a_pk = a.keypair().public_key_hex();
+    let b_pk = b.keypair().public_key_hex();
+    let expected = core::cmp::min(a_pk.clone(), b_pk.clone());
+    assert_eq!(
+        binding::resolve_pubkey(&[mk(&a, 150), mk(&b, 150)]),
+        Some(expected),
+        "tie-break by smaller pubkey"
+    );
 }

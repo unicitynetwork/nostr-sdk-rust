@@ -21,6 +21,7 @@ import { Event } from '../src/protocol/Event.js';
 import * as EventKinds from '../src/protocol/EventKinds.js';
 import * as NIP17 from '../src/messaging/nip17.js';
 import * as Nametag from '../src/nametag/NametagUtils.js';
+import * as NametagBinding from '../src/nametag/NametagBinding.js';
 import { NostrKeyManager } from '../src/NostrKeyManager.js';
 
 const OUT =
@@ -163,6 +164,25 @@ describe('gen-vectors', () => {
     for (const nm of ['my-agent', 'unicode-tag-😀']) {
       const payload = await Nametag.encryptNametag(nm, hx(privA));
       v.nametag.encrypt.push({ nametag: nm, priv: hx(privA), payload });
+    }
+
+    // UNIP-01 binding events (marked, kind 30078) for the resolution cross-check,
+    // plus the reference filter JSON shapes.
+    v.binding = { events: [] as any[], filters: [] as any[] };
+    {
+      const aShared = await NametagBinding.createBindingEvent(aliceKM, 'shared-name', 'DIRECT://aliceaddr');
+      const bShared = await NametagBinding.createBindingEvent(bobKM, 'shared-name', 'DIRECT://bobaddr');
+      const aOnly = await NametagBinding.createBindingEvent(aliceKM, 'alice-name', 'DIRECT://aliceonly');
+      v.binding.events.push(
+        { desc: 'alice-shared', nametag: 'shared-name', author_pub: hx(pubA), event: aShared.toJSON() },
+        { desc: 'bob-shared', nametag: 'shared-name', author_pub: hx(pubB), event: bShared.toJSON() },
+        { desc: 'alice-only', nametag: 'alice-name', author_pub: hx(pubA), event: aOnly.toJSON() },
+      );
+      v.binding.filters.push(
+        { kind: 'nametag', input: 'alice-name', json: NametagBinding.createNametagToPubkeyFilter('alice-name').toJSON() },
+        { kind: 'address', input: 'DIRECT://aliceonly', json: NametagBinding.createAddressToBindingFilter('DIRECT://aliceonly').toJSON() },
+        { kind: 'pubkey', input: hx(pubA), json: NametagBinding.createPubkeyToNametagFilter(hx(pubA)).toJSON() },
+      );
     }
 
     mkdirSync(dirname(OUT), { recursive: true });
