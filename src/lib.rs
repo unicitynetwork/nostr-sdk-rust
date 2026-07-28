@@ -19,6 +19,8 @@
 //! ## Not yet ported (roadmap)
 //! Multi-relay fan-out + reconnect/keepalive supervision, token/payment protocols.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 pub mod binding;

@@ -10,10 +10,16 @@ rust-version = "1.85"
 # The crate is deliberately transport-free and custody-agnostic (Signer trait).
 # All crypto is pure-Rust so it can compile to wasm32-unknown-unknown.
 [features]
-default = []
+default = ["std", "gzip"]
+# `std` links the standard library. Without it the crate is `#![no_std]` + `alloc`,
+# which builds for wasm32-unknown-unknown (the target the AOS side compiles to).
+std = []
+# NIP-04's GZIP extension for messages > 1 KiB (needs std::io via flate2). Only the
+# token/payment path relies on it, not DMs — so it can be dropped for wasm.
+gzip = ["std", "dep:flate2"]
 # Native (std/tungstenite) relay transport for host tools + e2e tests. A no_std
 # target would instead supply its own RelayConnection implementation.
-native-transport = ["dep:tungstenite"]
+native-transport = ["std", "dep:tungstenite"]
 
 [dependencies]
 k256 = { version = "0.13", default-features = false, features = ["schnorr", "ecdh", "arithmetic", "alloc"] }
@@ -23,12 +29,12 @@ chacha20poly1305 = { version = "0.10", default-features = false, features = ["al
 aes = "0.8"
 cbc = { version = "0.1", features = ["alloc"] }
 aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
-flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+flate2 = { version = "1", optional = true, default-features = false, features = ["rust_backend"] }
 base64 = { version = "0.22", default-features = false, features = ["alloc"] }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
-thiserror = "2"
+thiserror = { version = "2", default-features = false }
 tungstenite = { version = "0.21", optional = true, default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
 
 [dev-dependencies]
