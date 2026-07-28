@@ -1,0 +1,156 @@
+{
+  "note": "Generated from @unicitylabs/nostr-js-sdk v0.6.0 by tests/gen-vectors.test.ts. Do not edit by hand.",
+  "keys": {
+    "alice": {
+      "priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+      "xonly_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+      "npub": "npub1gqht3egkz37hlw8zx5lgjkepkp3mmgyjz9jlv0sh5dqguuq6u04sxwkz98",
+      "nsec": "nsec1rxq3jgmj7tc2lrpgd4thn6s4m7v6yp5fhfhxhylj0vukxvqns29scpcpv6"
+    },
+    "bob": {
+      "priv": "cd7419461b8e199d4a4edfd9273bbbc91ed08978cd245e44f32a13a8f97088df",
+      "xonly_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+      "npub": "npub1mdyy3x0aerhs4hjdc9lq6p523kus80gruq42y8xhx70cm6pvwy4qls8342",
+      "nsec": "nsec1e46pj3sm3cve6jjwmlvjwwamey0dpztce5j9u38n9gf637ts3r0sygm2g0"
+    }
+  },
+  "event_ids": [
+    {
+      "pubkey": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+      "created_at": 1700000000,
+      "kind": 1,
+      "tags": [],
+      "content": "hello world",
+      "id": "3b316847d9620f87a24a05a1255a969404edf60746915bccf06e0ed307cef5c8"
+    },
+    {
+      "pubkey": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+      "created_at": 1712345678,
+      "kind": 14,
+      "tags": [
+        [
+          "p",
+          "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a"
+        ],
+        [
+          "e",
+          "abc",
+          "",
+          "reply"
+        ]
+      ],
+      "content": "unicode: café 😀 — \"quotes\" \\ backslash \n newline \t tab",
+      "id": "9dcebd8126bb24572013b91ff05fbcd8906fd69e899c6358c3352090e9df2f2d"
+    },
+    {
+      "pubkey": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+      "created_at": 0,
+      "kind": 30078,
+      "tags": [
+        [
+          "d",
+          "x"
+        ],
+        [
+          "L",
+          "unicity:nametag"
+        ]
+      ],
+      "content": "{\"nametag_hash\":\"deadbeef\"}",
+      "id": "99869f854d1b16afe044e35e7fb53f417873412d6765059d7d1c65cf7e0d2d5f"
+    }
+  ],
+  "schnorr": [
+    {
+      "priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+      "xonly_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+      "msg": "3b316847d9620f87a24a05a1255a969404edf60746915bccf06e0ed307cef5c8",
+      "aux": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sig": "eb846ed5dc3151e04bd63d7894ac7613104f9d2a4d3db20b6073762947277294dc59b82ae992193fd4cce1e0ca8a37f7e5b07fa93f36c28c53dfe7a965cf3087",
+      "valid": true
+    }
+  ],
+  "nip04": {
+    "shared_secret": {
+      "a_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+      "b_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+      "secret": "aea1bf8dd002ea89cf2fec33e340721bf34ab5fc36f9d0f2dbcc6515561c0ddb"
+    },
+    "messages": [
+      {
+        "plaintext": "hi",
+        "from_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+        "from_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+        "to_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+        "payload": "uuFIh26DQamW8YxuNn+heA==?iv=cR9jpcoz+gG/EhPwN/gfxA==",
+        "gz": false
+      },
+      {
+        "plaintext": "The quick brown fox jumps over the lazy dog",
+        "from_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+        "from_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+        "to_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+        "payload": "n4oD2Kgnv57AcsUnPqNOQFpecBDH2p3mvHouFF57LfimiaYH8BgjzEBSzWpTdfMZ?iv=RnyYPhOVhLaMAhvGJEj7Eg==",
+        "gz": false
+      },
+      {
+        "plaintext": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "from_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+        "from_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+        "to_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+        "payload": "gz:4WjrfXOjNxAmvbXe7/lLuAPiM1kyZ4zhz7euQ/LJJdTwRvGMNOs6QaYMPl2DRgaD?iv=wdv2mwkiYIGmCjMW9+5r1A==",
+        "gz": true
+      }
+    ]
+  },
+  "nip44": {
+    "conversation_key": {
+      "a_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+      "b_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+      "key": "3c62da8903ba242f0f5c3f9784393145dc6439255a53460f3ea907c784edd2bc"
+    },
+    "conversation_key_reverse": "3c62da8903ba242f0f5c3f9784393145dc6439255a53460f3ea907c784edd2bc",
+    "messages": [
+      {
+        "plaintext": "hi",
+        "from_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+        "from_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+        "to_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+        "payload": "Arn15KtDtqdN1a1PKYNAS1S+zOjQskWdoJR7yQOqPqWinW3UErEA7xt5HtjsC0StCNPrBtihjS1bTzkFCU5QDvAlCh1sIvUchtZK"
+      },
+      {
+        "plaintext": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "from_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+        "from_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+        "to_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+        "payload": "ArGNwC+FB6d0TNEP6c5QaEfUcrl2+4hK929H4lAEXban3FHzjYDPwfu8LMEsHwjymeXBkVkjDPMrJxxsz63tEZxP5UsIwjHxt3z3sRQ/ZgG2CeNv0Zrtye5nutcITH0ytIsYn3JqS7/vxoI="
+      },
+      {
+        "plaintext": "unicode 😀 café",
+        "from_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+        "from_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+        "to_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+        "payload": "Aoo6jP8WFqzUgNpvZ1OEF+7vznktOU07hKSTUZS/pVjTqB1ZYhHyxcu6fngaWexlCkWuTRxCN97OzR5UJdOLpg+zo/eukQKziZUy"
+      },
+      {
+        "plaintext": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "from_priv": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+        "from_pub": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+        "to_pub": "db484899fdc8ef0ade4dc17e0d068a8db903bd03e02aa21cd7379f8de82c712a",
+        "payload": "AgECsjmkQdySO3UtrjSKsv6QubHOCZeq/nmOaQPsdcr6FtA2KZPrHIBJ/oniBdk9lgCypYDeUcy0lWhb+AyzPXMp24D6or07KX8WXqJALQTKS5l1UCHWC1DSVNHRpFo0OjIZEiEtLRpcSOh3l6MmrqKO411pZaFuQAgi+RP6wMCJqgmIZEobI5NZX24c5wOfqwuRQnQPEuK8KZC0/8RjRkgHhq4BfjhPJl8EFV1lxdpBFIW5zWEp+rVyjLNLDNDVCuwNrgIinpaqq+fD0SomSzN++OlAuVhOuCMSma8+puoDEMcAuXzoluXvEWRiFBiCPeuvIZIZM+lNJm3QODQFPRzKnNdJNayvOlmqjyJlSpA/CSRajg6fjqCrtI6ka9l4DXH556Wzb9/xjWb2wekqSTIT+1W7a/VZLSc5ZQIHrpuMK2/gXixoGgZJAfRlM6KCTijwt6ALm7R26pHEG084sGpR5boWon6F2/3byev26gEwgvyQQREAb5hQTl/4LUPts74gHjXu5//EJdQMw86nHOLk6GNY5k57wlAJzsV50s0ZYcjbkmjkDEo5aNWOhBaEP2TRoLVVElQKmiMRKA52+pXRZgNp0l/AuL+KSKWJaQwLU29TH/1XZyAM0/qCa8+e5YoGkcdavJSdROFFNR6G1geRORLpPiKcKYcLB82qzmMXS2pELesXPF9Av25OXzlNb/FEyj35dziT4KixbVy0/b1XnA7LxQSB17DM"
+      }
+    ]
+  },
+  "bech32": [
+    {
+      "hrp": "npub",
+      "hex": "402eb8e516147d7fb8e2353e895b21b063bda0921165f63e17a3408e701ae3eb",
+      "encoded": "npub1gqht3egkz37hlw8zx5lgjkepkp3mmgyjz9jlv0sh5dqguuq6u04sxwkz98"
+    },
+    {
+      "hrp": "nsec",
+      "hex": "1981192372f2f0af8c286d5779ea15df99a20689ba6e6b93f27b39633013828b",
+      "encoded": "nsec1rxq3jgmj7tc2lrpgd4thn6s4m7v6yp5fhfhxhylj0vukxvqns29scpcpv6"
+    }
+  ]
+}

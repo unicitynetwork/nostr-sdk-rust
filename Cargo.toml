@@ -1,0 +1,30 @@
+[package]
+name = "unicity-nostr"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Rust port of the Unicity Nostr protocol, wire-compatible with @unicitylabs/nostr-js-sdk (the deployed TypeScript SDK)."
+repository = "https://github.com/unicitynetwork/nostr-sdk-rust"
+rust-version = "1.85"
+
+# The crate is deliberately transport-free and custody-agnostic (Signer trait).
+# All crypto is pure-Rust so it can compile to wasm32-unknown-unknown for the AOS capsule.
+[dependencies]
+k256 = { version = "0.13", default-features = false, features = ["schnorr", "ecdh", "arithmetic", "alloc"] }
+sha2 = { version = "0.10", default-features = false }
+hkdf = { version = "0.12", default-features = false }
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
+thiserror = "2"
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+base64 = "0.22"
