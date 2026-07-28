@@ -138,3 +138,60 @@ pub fn decrypt(my_secret: &[u8; 32], peer_xonly: &[u8; 32], payload: &str) -> Re
     }
     String::from_utf8(plaintext).map_err(|_| Error::Utf8)
 }
+
+// --- Shared-secret variants (for the Signer seam) ------------------------------
+// These take the pre-derived NIP-04 shared secret directly, so callers holding a
+// `Signer` (which exposes `nip04_shared_secret`) never need the raw private key.
+
+/// Encrypt with a pre-derived shared secret and IV (no compression).
+pub fn encrypt_with_secret_iv(secret: &[u8; 32], iv: &[u8; 16], message: &str) -> String {
+    let ct = aes_cbc_encrypt(secret, iv, message.as_bytes());
+    format(&ct, iv, false)
+}
+
+/// Encrypt with a pre-derived shared secret and IV, GZIP-compressing when the
+/// message exceeds 1024 bytes (matching the reference SDK's `encryptHex`).
+pub fn encrypt_auto_with_secret_iv(
+    secret: &[u8; 32],
+    iv: &[u8; 16],
+    message: &str,
+) -> Result<String> {
+    let plaintext = message.as_bytes();
+    let (data, compressed) = if plaintext.len() > COMPRESSION_THRESHOLD {
+        let c = gzip(plaintext)?;
+        if c.len() < plaintext.len() {
+            (c, true)
+        } else {
+            (plaintext.to_vec(), false)
+        }
+    } else {
+        (plaintext.to_vec(), false)
+    };
+    let ct = aes_cbc_encrypt(secret, iv, &data);
+    Ok(format(&ct, iv, compressed))
+}
+
+/// Decrypt a NIP-04 payload with a pre-derived shared secret.
+pub fn decrypt_with_secret(secret: &[u8; 32], payload: &str) -> Result<String> {
+    let (content, compressed) = match payload.strip_prefix(COMPRESSION_PREFIX) {
+        Some(rest) => (rest, true),
+        None => (payload, false),
+    };
+    let (ct_b64, iv_b64) = content
+        .split_once("?iv=")
+        .ok_or(Error::Malformed("nip04 missing ?iv="))?;
+    let ct = STANDARD
+        .decode(ct_b64)
+        .map_err(|e| Error::Decode(alloc::format!("base64 ct: {e}")))?;
+    let iv_vec = STANDARD
+        .decode(iv_b64)
+        .map_err(|e| Error::Decode(alloc::format!("base64 iv: {e}")))?;
+    let iv: [u8; 16] = iv_vec
+        .try_into()
+        .map_err(|_| Error::InvalidLength("iv != 16"))?;
+    let mut plaintext = aes_cbc_decrypt(secret, &iv, &ct)?;
+    if compressed {
+        plaintext = gunzip(&plaintext)?;
+    }
+    String::from_utf8(plaintext).map_err(|_| Error::Utf8)
+}

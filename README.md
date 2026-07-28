@@ -31,12 +31,15 @@ from the reference TypeScript SDK** (`cargo test`, 7 tests):
 | UNIP-01 bindings + resolution | `binding` | verify JS binding events, `queryWithFirstSeenWins` (marker/ambiguity/bad-sig/legacy) |
 | NIP-01 filters | `filter` | filter JSON shapes match the reference SDK, local `matches` |
 | Relay client + transport | `client` | **live e2e: publish + read-back a NIP-17 DM through the deployed testnet relay** |
+| Token transfer (kind 31113) | `token` | parse reference-SDK events, round-trip via the `Signer` |
+| Payment request/response (31115/31116) | `payment` | parse reference-SDK events, amount format/parse byte-exact |
 
 ### Not yet ported (roadmap)
 
 Multi-relay fan-out (broadcast + cross-relay query settlement) · keepalive/reconnect
-supervision · a `no_std`/wasm TLS+WebSocket transport · token/payment protocols.
-(NIP-29 group chat is out of scope for now.)
+supervision · a `no_std`/wasm TLS+WebSocket transport. (NIP-29 group chat is out of
+scope for now. The token payload itself — mint/settlement — is the Unicity token
+engine's concern, not this crate's; `token`/`payment` are the Nostr messaging layer.)
 
 ## Relay client & transport
 

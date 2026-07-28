@@ -9,7 +9,9 @@ use serde_json::Value;
 
 use unicity_nostr::crypto::{bech32, nip04, nip44, schnorr};
 use unicity_nostr::nip17::{self, GiftWrapParams};
-use unicity_nostr::{binding, nametag, Event, Filter, Keypair, LocalSigner, Signer};
+use unicity_nostr::{
+    binding, nametag, payment, token, Event, Filter, Keypair, LocalSigner, Signer,
+};
 
 const VECTORS: &str = include_str!("vectors/nostr-vectors.json");
 
@@ -642,4 +644,111 @@ fn filter_matches() {
             .matches(&ev),
         "wrong tag"
     );
+}
+
+fn signer_for(v: &Value, who: &str) -> LocalSigner {
+    LocalSigner::from_secret(h32(v["keys"][who]["priv"].as_str().unwrap())).unwrap()
+}
+
+#[test]
+fn token_transfer_vectors() {
+    let v = v();
+    let bob = signer_for(&v, "bob");
+    let alice = signer_for(&v, "alice");
+    let bob_pub = h32(v["keys"]["bob"]["xonly_pub"].as_str().unwrap());
+
+    for t in v["token"]["transfers"].as_array().unwrap() {
+        let ev: Event = serde_json::from_value(t["event"].clone()).unwrap();
+        assert!(ev.verify(), "token transfer verifies");
+        assert!(token::is_token_transfer(&ev));
+        // Recipient (bob) decrypts the token JSON produced by the reference SDK.
+        let got = token::parse_token_transfer(&bob, &ev).unwrap();
+        assert_eq!(got, t["token_json"].as_str().unwrap(), "token json");
+        assert_eq!(token::amount(&ev), Some("100"));
+        assert_eq!(token::symbol(&ev), Some("UNI"));
+        assert!(token::reply_to_event_id(&ev).is_some());
+    }
+
+    // Round-trip: alice builds, bob parses.
+    let opts = token::TokenTransferOptions {
+        amount: Some("42"),
+        symbol: Some("UNI"),
+        reply_to_event_id: None,
+    };
+    let ev = token::create_token_transfer_event(
+        &alice,
+        &bob_pub,
+        "{\"t\":\"x\"}",
+        &opts,
+        &[9u8; 16],
+        1_712_000_000,
+    )
+    .unwrap();
+    assert_eq!(
+        token::parse_token_transfer(&bob, &ev).unwrap(),
+        "{\"t\":\"x\"}"
+    );
+    assert_eq!(token::amount(&ev), Some("42"));
+}
+
+#[test]
+fn payment_request_vectors() {
+    let v = v();
+    let bob = signer_for(&v, "bob");
+    let alice = signer_for(&v, "alice");
+
+    for r in v["payment"]["requests"].as_array().unwrap() {
+        let ev: Event = serde_json::from_value(r["event"].clone()).unwrap();
+        assert!(payment::is_payment_request(&ev));
+        let parsed = payment::parse_payment_request(&bob, &ev).unwrap();
+        let req = &r["request"];
+        assert_eq!(parsed.amount, req["amount"].as_str().unwrap());
+        assert_eq!(parsed.coin_id, req["coinId"].as_str().unwrap());
+        assert_eq!(parsed.message.as_deref(), req["message"].as_str());
+        assert_eq!(
+            parsed.recipient_nametag,
+            req["recipientNametag"].as_str().unwrap()
+        );
+        assert_eq!(parsed.request_id, req["requestId"].as_str().unwrap());
+        assert_eq!(parsed.deadline, req["deadline"].as_i64());
+        assert_eq!(parsed.sender_pubkey, r["from_pub"].as_str().unwrap());
+    }
+
+    for r in v["payment"]["responses"].as_array().unwrap() {
+        let ev: Event = serde_json::from_value(r["event"].clone()).unwrap();
+        assert!(payment::is_payment_request_response(&ev));
+        // alice (original requester) parses bob's response.
+        let parsed = payment::parse_payment_request_response(&alice, &ev).unwrap();
+        assert_eq!(parsed.status, payment::ResponseStatus::Declined);
+        assert_eq!(parsed.reason.as_deref(), Some("busy"));
+        assert_eq!(parsed.request_id, r["requestId"].as_str().unwrap());
+        assert_eq!(
+            parsed.original_event_id,
+            r["originalEventId"].as_str().unwrap()
+        );
+    }
+}
+
+#[test]
+fn payment_amount_format_parse() {
+    let v = v();
+    for f in v["payment"]["format"].as_array().unwrap() {
+        let amount: u128 = f["amount"].as_str().unwrap().parse().unwrap();
+        let dec = f["decimals"].as_u64().unwrap() as u32;
+        assert_eq!(
+            payment::format_amount(amount, dec),
+            f["formatted"].as_str().unwrap(),
+            "format {amount}"
+        );
+    }
+    for p in v["payment"]["parse"].as_array().unwrap() {
+        let dec = p["decimals"].as_u64().unwrap() as u32;
+        let got = payment::parse_amount(p["str"].as_str().unwrap(), dec).unwrap();
+        assert_eq!(
+            got.to_string(),
+            p["amount"].as_str().unwrap(),
+            "parse {:?}",
+            p["str"]
+        );
+    }
 }
