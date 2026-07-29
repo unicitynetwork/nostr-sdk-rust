@@ -32,15 +32,12 @@ from the reference TypeScript SDK** (`cargo test`, 7 tests):
 | NIP-01 filters | `filter` | filter JSON shapes match the reference SDK, local `matches` |
 | Relay client + transport | `client` | **live e2e: publish + read-back a NIP-17 DM through the deployed testnet relay** |
 | Multi-relay client | `client::multi` | broadcast publish + query merge/dedup + persistent subscribe/poll (mock-tested) |
-| Token transfer (kind 31113) | `token` | parse reference-SDK events, round-trip via the `Signer` |
-| Payment request/response (31115/31116) | `payment` | parse reference-SDK events, amount format/parse byte-exact |
 
 ### Not yet ported (roadmap)
 
 Reconnect/keepalive supervision (the caller re-`connect`s a relay via the `Transport`) ·
-a `no_std`/wasm TLS+WebSocket transport. (NIP-29 group chat is out of scope for now.
-The token payload itself — mint/settlement — is the Unicity token engine's concern,
-not this crate's; `token`/`payment` are the Nostr messaging layer.)
+a `no_std`/wasm TLS+WebSocket transport. (NIP-29 group chat and token/payment
+protocols are out of scope.)
 
 ## Relay client & transport
 
@@ -95,9 +92,9 @@ cargo build --target wasm32-unknown-unknown --no-default-features
 
 Default features: `std` (links the standard library) and `gzip` (NIP-04's GZIP
 extension via `flate2`, which needs `std::io`); drop both for wasm. `native-transport`
-(std/tungstenite) is off by default. GZIP is only used by the token/payment path,
-not DMs — a wasm build without it still does full DM messaging. CI builds this
-target on every push.
+(std/tungstenite) is off by default. GZIP is only the NIP-04 large-message
+extension, not DMs — a wasm build without it still does full DM messaging. CI
+builds this target on every push.
 
 ## License
 

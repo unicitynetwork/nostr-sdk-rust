@@ -17,7 +17,7 @@
 //!   GZIP extension for large messages.
 //!
 //! ## Not yet ported (roadmap)
-//! Multi-relay fan-out + reconnect/keepalive supervision, token/payment protocols.
+//! Reconnect/keepalive supervision.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -33,9 +33,7 @@ pub mod keys;
 pub mod kinds;
 pub mod nametag;
 pub mod nip17;
-pub mod payment;
 pub mod signer;
-pub mod token;
 
 pub use error::{Error, Result};
 pub use event::{Event, Tag};
@@ -43,22 +41,3 @@ pub use filter::{Filter, FilterBuilder};
 pub use keys::Keypair;
 pub use nip17::{GiftWrapParams, PrivateMessage, Rumor};
 pub use signer::{LocalSigner, Signer};
-
-/// Determine the NIP-04 decryption peer for a directed (token/payment) event:
-/// if we authored it, the peer is the `p`-tagged recipient; otherwise the author.
-pub(crate) fn protocol_peer<S: Signer>(signer: &S, event: &Event) -> Result<[u8; 32]> {
-    use alloc::string::ToString;
-    let me = hex::encode(signer.public_key());
-    let peer_hex = if event.pubkey == me {
-        event
-            .tag_value("p")
-            .ok_or(Error::Malformed("no recipient tag"))?
-            .to_string()
-    } else {
-        event.pubkey.clone()
-    };
-    hex::decode(&peer_hex)
-        .map_err(|e| Error::Decode(alloc::format!("hex peer: {e}")))?
-        .try_into()
-        .map_err(|_| Error::InvalidLength("peer != 32"))
-}

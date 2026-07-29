@@ -22,8 +22,6 @@ import * as EventKinds from '../src/protocol/EventKinds.js';
 import * as NIP17 from '../src/messaging/nip17.js';
 import * as Nametag from '../src/nametag/NametagUtils.js';
 import * as NametagBinding from '../src/nametag/NametagBinding.js';
-import * as TokenTransfer from '../src/token/TokenTransferProtocol.js';
-import * as PaymentReq from '../src/payment/PaymentRequestProtocol.js';
 import { NostrKeyManager } from '../src/NostrKeyManager.js';
 
 const OUT =
@@ -185,54 +183,6 @@ describe('gen-vectors', () => {
         { kind: 'address', input: 'DIRECT://aliceonly', json: NametagBinding.createAddressToBindingFilter('DIRECT://aliceonly').toJSON() },
         { kind: 'pubkey', input: hx(pubA), json: NametagBinding.createPubkeyToNametagFilter(hx(pubA)).toJSON() },
       );
-    }
-
-    // Token transfer (kind 31113) + payment request/response (31115/31116).
-    v.token = { transfers: [] as any[] };
-    {
-      const tokenJson = JSON.stringify({ id: 'tok-abc', amount: '100', coin: 'UNICITY' });
-      const ev = await TokenTransfer.createTokenTransferEvent(aliceKM, bobPubHex, tokenJson, {
-        amount: '100',
-        symbol: 'UNI',
-        replyToEventId: v.event_ids[0].id,
-      });
-      v.token.transfers.push({ token_json: tokenJson, from_pub: hx(pubA), to_pub: hx(pubB), event: ev.toJSON() });
-    }
-
-    v.payment = { requests: [] as any[], responses: [] as any[], format: [] as any[], parse: [] as any[] };
-    {
-      const req = {
-        amount: '250000000',
-        coinId: 'deadbeef',
-        message: 'coffee please',
-        recipientNametag: 'alice',
-        requestId: 'a1b2c3d4',
-        deadline: 1712345678000,
-      };
-      const ev = await PaymentReq.createPaymentRequestEvent(aliceKM, bobPubHex, req);
-      v.payment.requests.push({ from_pub: hx(pubA), to_pub: hx(pubB), request: req, event: ev.toJSON() });
-
-      const respEv = await PaymentReq.createPaymentRequestResponseEvent(bobKM, hx(pubA), {
-        requestId: 'a1b2c3d4',
-        originalEventId: ev.id,
-        status: PaymentReq.ResponseStatus.DECLINED,
-        reason: 'busy',
-      });
-      v.payment.responses.push({
-        from_pub: hx(pubB),
-        to_pub: hx(pubA),
-        requestId: 'a1b2c3d4',
-        originalEventId: ev.id,
-        status: 'DECLINED',
-        reason: 'busy',
-        event: respEv.toJSON(),
-      });
-    }
-    for (const [amount, decimals] of [['0', 8], ['100000000', 8], ['150000000', 8], ['123456789', 8], ['1000000000000', 8], ['1', 6]] as [string, number][]) {
-      v.payment.format.push({ amount, decimals, formatted: PaymentReq.formatAmount(BigInt(amount), decimals) });
-    }
-    for (const [str, decimals] of [['1', 8], ['1.5', 8], ['0.00000001', 8], ['1.123456789', 8], ['.5', 8], ['12.', 8]] as [string, number][]) {
-      v.payment.parse.push({ str, decimals, amount: PaymentReq.parseAmount(str, decimals).toString() });
     }
 
     mkdirSync(dirname(OUT), { recursive: true });
