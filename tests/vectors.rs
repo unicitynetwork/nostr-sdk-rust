@@ -492,8 +492,9 @@ fn unip01_resolution() {
 }
 
 #[test]
-fn resolution_legacy_first_seen_wins() {
-    // Legacy (unmarked) path: earliest created_at wins, lexicographic-pubkey tie-break.
+fn resolution_legacy_single_author_or_ambiguous() {
+    // Legacy (unmarked) path: a single author resolves; several authors are
+    // ambiguous. created_at is self-asserted, so it never picks a winner.
     let a = LocalSigner::from_secret([1u8; 32]).unwrap();
     let b = LocalSigner::from_secret([2u8; 32]).unwrap();
     let content = r#"{"nametag_hash":"n","address":"x"}"#;
@@ -508,22 +509,42 @@ fn resolution_legacy_first_seen_wins() {
         .unwrap()
     };
 
-    let a_old = mk(&a, 100);
-    let b_new = mk(&b, 200);
+    // One author, several events => that author.
     assert_eq!(
-        binding::resolve_pubkey(&[b_new, a_old]).as_deref(),
+        binding::resolve_pubkey(&[mk(&a, 100), mk(&a, 300)]).as_deref(),
         Some(a.keypair().public_key_hex().as_str()),
-        "earlier created_at wins"
+        "single legacy author resolves"
     );
 
-    // Tie on created_at => lexicographically smaller pubkey.
-    let a_pk = a.keypair().public_key_hex();
-    let b_pk = b.keypair().public_key_hex();
-    let expected = core::cmp::min(a_pk.clone(), b_pk.clone());
-    assert_eq!(
-        binding::resolve_pubkey(&[mk(&a, 150), mk(&b, 150)]),
-        Some(expected),
-        "tie-break by smaller pubkey"
+    // Two authors => None, whichever created_at is lower.
+    assert!(
+        binding::resolve_pubkey(&[mk(&b, 200), mk(&a, 100)]).is_none(),
+        "earlier created_at must not win"
+    );
+    assert!(
+        binding::resolve_pubkey(&[mk(&a, 150), mk(&b, 150)]).is_none(),
+        "equal created_at must not be tie-broken"
+    );
+}
+
+#[test]
+fn resolution_legacy_nametag_not_taken_over_by_backdated_binding() {
+    // The relay enforces nothing for unmarked bindings, so an attacker can
+    // publish one under the victim's d tag with any created_at.
+    let victim = LocalSigner::from_secret([1u8; 32]).unwrap();
+    let attacker = LocalSigner::from_secret([2u8; 32]).unwrap();
+    let unmarked = |s: &LocalSigner, created: i64| {
+        let ev =
+            binding::create_binding_event(s, "target", "DIRECT://a", created, created, None, None)
+                .unwrap();
+        let tags = ev.tags.into_iter().filter(|t| t[0] != "L").collect();
+        Event::create(s, ev.kind, tags, ev.content, created).unwrap()
+    };
+
+    let events = vec![unmarked(&victim, 1_000), unmarked(&attacker, 1)];
+    assert!(
+        binding::resolve_nametag_pubkey(&events, "target").is_none(),
+        "a backdated competing legacy binding must not win"
     );
 }
 

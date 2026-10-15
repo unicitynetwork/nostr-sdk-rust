@@ -254,63 +254,42 @@ pub fn is_valid_binding_event(event: &Event) -> bool {
 /// `include` returns true.
 ///
 /// * Per author, the *latest* (max `created_at`) included event is that author's
-///   current binding; `first_seen` is the author's earliest included `created_at`.
-/// * If any author's current binding carries the UNIP-01 marker, ownership comes
-///   from the marked set: exactly one marked author wins; more than one distinct
-///   marked author is ambiguous → `None`. Self-asserted `created_at` is ignored.
-/// * Otherwise (legacy) first-seen-wins by `created_at`, lexicographic-pubkey tie-break.
+///   current binding.
+/// * If any author's current binding carries the UNIP-01 marker, only marked
+///   authors are considered.
+/// * Exactly one remaining author wins; more than one is ambiguous → `None`.
+///   `created_at` is self-asserted, so it never chooses between authors.
 fn resolve_filtered(events: &[Event], include: impl Fn(&Event) -> bool) -> Option<&Event> {
-    // author pubkey -> (first_seen, latest_idx, latest_created_at)
-    let mut authors: BTreeMap<&str, (i64, usize, i64)> = BTreeMap::new();
+    // author pubkey -> index of that author's latest included event
+    let mut latest: BTreeMap<&str, usize> = BTreeMap::new();
     for (i, ev) in events.iter().enumerate() {
         if !include(ev) {
             continue;
         }
-        authors
+        latest
             .entry(ev.pubkey.as_str())
-            .and_modify(|e| {
-                if ev.created_at < e.0 {
-                    e.0 = ev.created_at;
-                }
-                if ev.created_at > e.2 {
-                    e.1 = i;
-                    e.2 = ev.created_at;
+            .and_modify(|idx| {
+                if ev.created_at > events[*idx].created_at {
+                    *idx = i;
                 }
             })
-            .or_insert((ev.created_at, i, ev.created_at));
-    }
-    if authors.is_empty() {
-        return None;
+            .or_insert(i);
     }
 
     // UNIP-01 marker preference (read from each author's current/latest event).
-    let marked: Vec<usize> = authors
+    let mut owners: Vec<usize> = latest
         .values()
-        .filter(|(_, idx, _)| nametag::has_ownership_marker(&events[*idx]))
-        .map(|(_, idx, _)| *idx)
+        .copied()
+        .filter(|idx| nametag::has_ownership_marker(&events[*idx]))
         .collect();
-    if !marked.is_empty() {
-        return if marked.len() == 1 {
-            Some(&events[marked[0]])
-        } else {
-            None
-        };
+    if owners.is_empty() {
+        owners = latest.values().copied().collect();
     }
 
-    // Legacy: min (first_seen, pubkey).
-    let mut winner: Option<(&str, i64, usize)> = None;
-    for (pubkey, (first_seen, idx, _)) in &authors {
-        let better = match winner {
-            None => true,
-            Some((wpk, wfirst, _)) => {
-                *first_seen < wfirst || (*first_seen == wfirst && *pubkey < wpk)
-            }
-        };
-        if better {
-            winner = Some((pubkey, *first_seen, *idx));
-        }
+    match owners.as_slice() {
+        [idx] => Some(&events[*idx]),
+        _ => None,
     }
-    winner.map(|(_, _, idx)| &events[idx])
 }
 
 /// Low-level owner selection over a set of binding events. Only signatures are
